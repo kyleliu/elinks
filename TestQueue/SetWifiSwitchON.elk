@@ -1,0 +1,9 @@
+{
+"type":		"cfg",
+"sequence":	10111,		
+"mac":		"mac",		
+"set":	{
+"wifiswitch":{"status":"ON"}
+
+}
+}

@@ -1,0 +1,36 @@
+{
+"type":		"cfg",
+"sequence":	10121,		
+"mac":		"mac",		
+"status":	{
+"wifi":[
+{
+"radio":{
+"mode":	"2.4G",		
+"channel":	0	
+}
+}
+]
+},
+"set":{
+"wifi":[
+{
+"radio":{
+"mode":	"2.4G",		
+"channel":	0,	
+"txpower":"1"
+},
+"ap":[
+{
+"apidx":	0,
+"enable":   "no",
+"ssid":		"chinet-123",
+"key":		"123456789",
+"auth":		"wpa2psk",
+"encrypt":"aestkip"	
+}
+]
+}
+]
+}
+}

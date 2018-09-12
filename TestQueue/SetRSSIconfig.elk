@@ -1,0 +1,11 @@
+{"type":"cfg", "sequence":11020,"mac":"mac",
+                		"set":
+                        {"roaming_set":{
+    					 "enable":"yes",
+    					 "threshold_rssi": -50,
+    					 "report_interval":30,
+    					 "start_time":60,
+    					 "start_rssi": -55}
+
+                        }
+            			}

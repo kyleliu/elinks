@@ -1,0 +1,5 @@
+{"type":"getrssiinfo","sequence":11016,"mac":"mac","get":{"mac":["XXXXXXXXXXXX"]        }}
+^ResponseKeyWord^XXXXXXXXXXXX^band^"rssi":-
+^RecTimeOut^40
+^Interface^无线信号检测/信息返回[已关联](表21、22)
+^MessageBox^请确保下联设备已接入被测AP，然后点击确认。

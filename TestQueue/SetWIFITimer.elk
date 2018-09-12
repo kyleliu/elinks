@@ -1,0 +1,16 @@
+{
+"type":		"cfg",
+"sequence":	10111,		
+"mac":		"mac",		
+"set":	{
+"wifitimer":
+[
+{"weekday":"1",
+"time":"17:30",
+"enable":"0"},
+{"weekday":"2",
+"time":"17:30",
+"enable":"1"}
+]
+}
+}

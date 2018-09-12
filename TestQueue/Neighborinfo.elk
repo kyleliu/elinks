@@ -1,0 +1,4 @@
+{"type":"get_status","sequence": 	10111,"mac":"mac",	"get":[{"name": "neighborinfo"}]}
+^ResponseKeyWord^rfband^ssidname
+^RecTimeOut^10
+^Interface^查询信息(表10)

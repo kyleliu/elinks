@@ -1,0 +1,10 @@
+{
+	"type": "cfg",
+	"sequence": 123,
+	"mac": "mac",
+	"set": {
+		"ledswitch": {
+			"status": "OFF"
+		}
+	}
+}

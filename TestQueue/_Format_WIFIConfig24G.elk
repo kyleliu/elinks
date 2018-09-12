@@ -1,0 +1,4 @@
+{"type":"get_status","sequence": 	10111,"mac":"mac",	"get":[{"name":"wifi"}]}
+^ResponseKeyWord^SSSSSS^KKKKKK^wpapskwpa2psk^aes
+^RecTimeOut^10
+^Interface^配置与同步信息(表8)

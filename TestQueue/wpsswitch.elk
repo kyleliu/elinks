@@ -1,0 +1,4 @@
+{"type":"cfg","sequence":11012,"mac":"mac","set":{"wpsswitch":{"status":"ON"}        }}
+^ResponseKeyWord^11012
+^RecTimeOut^15
+^Interface^WPS开关消息(表14)

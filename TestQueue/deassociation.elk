@@ -1,0 +1,4 @@
+{"type":"deassociation","sequence":11016,"mac":"mac","set":{"mac":["70EF0026E0DE"]        }}
+^ResponseKeyWord^dev_report
+^RecTimeOut^60
+^Interface^下挂终端去关联(表20)

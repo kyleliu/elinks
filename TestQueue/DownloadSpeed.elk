@@ -1,0 +1,3 @@
+{"type":"get_status","sequence": 	10111,"mac":"mac",	"get":[{"name":"downloadspeed"}]}
+^ResponseKeyWord^downloadspeed
+^Interface^查询信息(表10)

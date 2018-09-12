@@ -1,0 +1,19 @@
+{
+	"type": "cfg",
+	"sequence": 123,
+	"mac": "mac",
+	"set": {
+		"roaming_set": {
+			"enable": "yes",
+			"threshold_rssi": -50,
+			"report_interval": 30,
+			"start_time": 60,
+			"start_rssi": -55
+		}
+
+	}
+}
+^ResponseKeyWord^roaming_report
+^RecTimeOut^120
+^Interface^漫游配置/终端RSSI上报(表18、19)
+^MessageBox^请点击OK后在120秒后将下挂设备远离AP。

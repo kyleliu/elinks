@@ -1,0 +1,4 @@
+{"type":"getrssiinfo","sequence":11017,"mac":"mac","get":{"mac":["XXXXXXXXXXXX"]        }}
+^ResponseKeyWord^XXXXXXXXXXXX^band^"rssi":-
+^RecTimeOut^40
+^Interface^无线信号检测/信息返回[未关联](表21、22)

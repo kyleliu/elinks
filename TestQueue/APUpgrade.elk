@@ -1,0 +1,4 @@
+{"type":"cfg","sequence": 	10118,"mac":"mac",	"set":{"upgrade":{"downurl":"downurl","isreboot":"1"}}}
+^ResponseKeyWord^10118
+^RecTimeOut^15
+^Interface^设备升级消息(表15)

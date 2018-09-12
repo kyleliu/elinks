@@ -1,0 +1,4 @@
+{"type":"get_status","sequence": 	10111,"mac":"mac",	"get":[{"name": "wifitimer"}]}
+^ResponseKeyWord^"17:30"
+^RecTimeOut^15
+^Interface^配置信息(表9)

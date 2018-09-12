@@ -1,0 +1,5 @@
+{"type":"get_status","sequence": 	10111,"mac":"mac",	"get":[{"name":"real_devinfo"}]}
+^ResponseKeyWord^connecttype^rssi
+^RecTimeOut^10
+^Interface^查询信息(表10)
+^MessageBox^请确保下挂设备已连接AP后再点击OK。

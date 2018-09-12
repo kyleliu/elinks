@@ -1,0 +1,5 @@
+{"type":"get_status","sequence": 	10111,"mac":"mac",	"get":[{"name":"cpurate"}]}
+^ResponseKeyWord^dev_report
+^RecTimeOut^50
+^Interface^下挂设备状态信息(表12)
+^MessageBox^请点击OK后在50秒内将下挂设备连接AP。
