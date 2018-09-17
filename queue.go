@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/csv"
 	"encoding/json"
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -38,20 +37,21 @@ type TestItem struct {
 	Pass            bool
 }
 
-type TestQueue struct {
-	Children []*TestItem
-	CurIndex int
-}
+type TestQueue []*TestItem
 
-func CreateTestItemFromFile(name string) *TestItem {
+const (
+	STAMAC = "A03BE385997D"
+)
+
+func CreateTestItemFromFile(name string, mac string) *TestItem {
 	if _, err := os.Stat(name); os.IsNotExist(err) {
-		fmt.Printf("Test queue file %s does not exist\n", name)
+		LogPrintln("[E]", "Error:", err)
 		return nil
 	}
 
 	f, err := os.Open(name)
 	if err != nil {
-		fmt.Println("Error:", err)
+		LogPrintln("[E]", "Error:", err)
 		return nil
 	}
 	defer f.Close()
@@ -68,26 +68,34 @@ func CreateTestItemFromFile(name string) *TestItem {
 			timeout, _ = strconv.Atoi(strings.TrimPrefix(line, "^RecTimeOut^"))
 		} else if strings.HasPrefix(line, "^ResponseKeyWord^") {
 			keywords = strings.Split(strings.TrimPrefix(line, "^ResponseKeyWord^"), "^")
+			for i, v := range keywords {
+				if v == STAMAC {
+					keywords[i] = mac
+				}
+			}
 		} else if strings.HasPrefix(line, "^Interface^") {
 			title = strings.TrimPrefix(line, "^Interface^")
 		} else if strings.HasPrefix(line, "^MessageBox^") {
 			message = strings.TrimPrefix(line, "^MessageBox^")
 		} else if strings.HasPrefix(line, "^") {
-			fmt.Println("Unknown line:", line)
+			LogPrintln("[W]", "Unknown line:", line)
 		} else {
 			request += line
 		}
 	}
 
+	// 用指定的测试手机MAC地址替换请求头中的MAC地址
+	request = strings.Replace(request, STAMAC, mac, -1)
+
 	var item = new(TestItem)
 	if err = json.Unmarshal([]byte(request), &item.Request); err != nil {
-		fmt.Println("Convert JSON string error", err)
+		LogPrintln("[E]", "Convert JSON string error:", err)
 		item.Request = nil
 	}
 	item.Name = name
 	item.RecTimeOut = timeout
 	if item.RecTimeOut <= 0 {
-		item.RecTimeOut = 1
+		item.RecTimeOut = 5
 	}
 	item.ResponseKeyWord = keywords
 	item.Interface = title
@@ -96,44 +104,27 @@ func CreateTestItemFromFile(name string) *TestItem {
 	return item
 }
 
-func CreateTestQueueFromFile(file string) *TestQueue {
-	if _, err := os.Stat(file); os.IsNotExist(err) {
-		fmt.Printf("Test queue file %s does not exist\n", file)
-		return nil
+func CreateTestQueueFromFile(file string, mac string) (queue TestQueue, err error) {
+	if _, err = os.Stat(file); os.IsNotExist(err) {
+		return
 	}
 
 	f, err := os.Open(file)
 	if err != nil {
-		fmt.Println("Error:", err)
-		return nil
+		return
 	}
 	defer f.Close()
 
-	var queue = new(TestQueue)
 	reader := csv.NewReader(f)
 	rec, _ := reader.ReadAll()
 	for _, r := range rec {
 		for _, c := range r {
-			item := CreateTestItemFromFile(c)
+			item := CreateTestItemFromFile(c, mac)
 			if item != nil {
-				queue.Children = append(queue.Children, item)
+				queue = append(queue, item)
 			}
 		}
 	}
 
-	queue.CurIndex = -1
-	return queue
-}
-
-func (q *TestQueue) Next() *TestItem {
-	if len(q.Children) == 0 {
-		return nil
-	}
-
-	q.CurIndex++
-	if q.CurIndex >= len(q.Children) {
-		return nil
-	}
-
-	return q.Children[q.CurIndex]
+	return
 }

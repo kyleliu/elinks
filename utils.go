@@ -5,8 +5,53 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/base64"
+	"fmt"
 	"math/big"
+	"time"
 )
+
+var LogQuiet = false
+var LogQuietDump = ""
+
+func LogEnable(enable bool) {
+	if enable {
+		LogQuiet = false
+		if LogQuietDump != "" {
+			fmt.Print(LogQuietDump)
+			LogQuietDump = ""
+		}
+	} else {
+		LogQuiet = true
+		LogQuietDump = ""
+	}
+}
+
+func LogPrintln(a ...interface{}) {
+	var buf bytes.Buffer
+	for argNum, arg := range a {
+		if argNum > 0 {
+			buf.WriteByte(' ')
+		}
+		buf.WriteString(fmt.Sprint(arg))
+	}
+
+	if LogQuiet {
+		LogQuietDump += fmt.Sprintln(time.Now().Format("2006-01-02 15:04:05"), buf.String())
+	} else {
+		fmt.Println(time.Now().Format("2006-01-02 15:04:05"), buf.String())
+	}
+}
+
+func LogPrintf(format string, a ...interface{}) {
+	var buf bytes.Buffer
+	buf.WriteString(fmt.Sprintf(format, a))
+
+	if LogQuiet {
+		LogQuietDump += fmt.Sprintln(time.Now().Format("2006-01-02 15:04:05"), buf.String())
+	} else {
+		fmt.Print(time.Now().Format("2006-01-02 15:04:05"), buf.String())
+	}
+}
 
 // Returns the appropriate base-two padded
 // bytes (assuming the underlying big representation remains b2c)
@@ -71,7 +116,7 @@ func B64ToBigInt(in string, b *big.Int) (err error) {
 }
 
 func PKCS7Padding(ciphertext []byte, blockSize int) []byte {
-	padding := blockSize - len(ciphertext) % blockSize
+	padding := blockSize - len(ciphertext)%blockSize
 	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
 	return append(ciphertext, padtext...)
 }
@@ -90,7 +135,7 @@ func AesEncrypt(origData, key []byte) ([]byte, error) {
 	blockSize := block.BlockSize()
 	origData = PKCS7Padding(origData, blockSize)
 	iv := make([]byte, blockSize)
-	for i:= 0; i < blockSize; i++{
+	for i := 0; i < blockSize; i++ {
 		iv[i] = 0
 	}
 	blockMode := cipher.NewCBCEncrypter(block, iv)
@@ -106,7 +151,7 @@ func AesDecrypt(crypted, key []byte) ([]byte, error) {
 	}
 	blockSize := block.BlockSize()
 	iv := make([]byte, blockSize)
-	for i:= 0; i < blockSize; i++{
+	for i := 0; i < blockSize; i++ {
 		iv[i] = 0
 	}
 	blockMode := cipher.NewCBCDecrypter(block, iv)
@@ -114,4 +159,21 @@ func AesDecrypt(crypted, key []byte) ([]byte, error) {
 	blockMode.CryptBlocks(origData, crypted)
 	origData = PKCS7UnPadding(origData)
 	return origData, nil
+}
+
+func FW(s string, l int) string {
+	w := 0
+	for _, c := range []rune(s) {
+		if IsFullwidth(c) {
+			w += 2
+		} else {
+			w += 1
+		}
+	}
+	for w < l {
+		s += " "
+		w++
+	}
+
+	return s
 }

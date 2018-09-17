@@ -8,20 +8,30 @@ import (
 	"os"
 	"os/user"
 	"strconv"
+	"strings"
 	"time"
 )
 
-var host = flag.String("host", "", "Specific listen address")
-var port = flag.String("port", "32768", "Specific listen port")
-var test = flag.String("test", "TestQueue.txt", "Specific test queue file")
+var host = flag.String("host", "", "侦听地址")
+var port = flag.String("port", "32768", "侦听端口")
+var file = flag.String("file", "TestQueue.txt", "测试队列文件名")
+var tmac = flag.String("tmac", "", "测试手机的MAC地址")
 
 func main() {
 	flag.Parse()
 
+	testMAC := strings.ToUpper(strings.Replace(*tmac, ":", "", -1))
+	if len(testMAC) != 12 {
+		flag.Usage()
+		LogPrintln("E", "无效的测试手机MAC地址[", testMAC, "]")
+		os.Exit(1)
+	}
+
 	// Init test queue
-	queue := CreateTestQueueFromFile(*test)
+	queue, err := CreateTestQueueFromFile(*file, testMAC)
 	if queue == nil {
-		fmt.Println("Parse TestQueue error!")
+		flag.Usage()
+		LogPrintln("E", "解析TestQueue错误：", err)
 		os.Exit(1)
 	}
 
@@ -33,31 +43,40 @@ func main() {
 	cli.WaitReady()
 
 	// Do tests
-	for _, q := range queue.Children {
+	for _, q := range queue {
+		LogPrintln("[T]", "-----------------------------------------------------------------------------------------------")
+		LogPrintln("[T]", "测试名称:", q.Name)
 		if q.Interface != "" {
-			fmt.Printf("[T] \"%s\"(%s) 正在测试 ... \n", q.Interface, q.Name)
+			LogPrintln("[T]", "接口名称:", q.Interface)
 		}
+		LogPrintln("[T]", "超时时间:", q.RecTimeOut, "秒")
+		LogPrintln("[T]", "词语匹配:", q.ResponseKeyWord)
 
 		// Prompt user to press key
 		if q.MessageBox != "" {
-			fmt.Printf("[T] --- %s ---\n", q.MessageBox)
-			fmt.Printf("[T] --- 按回车键继续 >>>>>> ")
+			LogPrintln("[T]", "---", q.MessageBox, "---")
+			LogPrintln("[T]", "---", "按回车键继续", ">>>>>>>>")
+			LogEnable(false)
 			reader := bufio.NewReader(os.Stdin)
 			reader.ReadString('\n')
+			LogEnable(true)
 		}
 
 		// Send request
+		testBegin := time.Now()
+		LogPrintln("[T]", "打印开始:", "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv")
 		cli.SendRequest(q.Request)
 
 		// Wait response and check keywords
 		q.Pass = cli.WaitAndCheckResponse(
 			q.RecTimeOut, q.ResponseKeyWord)
 
+		LogPrintln("[T]", "打印结束:", "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+
 		// Show result
-		if q.Interface != "" {
-			fmt.Printf("[T] \"%s\"(%s) 测试结果 [%s]\n",
-				q.Interface, q.Name, strconv.FormatBool(q.Pass))
-		}
+		LogPrintln("[T]", "花费时间:", time.Now().Sub(testBegin).Seconds(), "秒")
+		LogPrintln("[T]", "测试结果:", strconv.FormatBool(q.Pass))
+		LogPrintln("[T]", "-----------------------------------------------------------------------------------------------")
 	}
 
 	// Auto get tester's name
@@ -67,23 +86,34 @@ func main() {
 	}
 
 	// Dump test result
-	fmt.Printf("[T] =========================================================================================\n")
-	fmt.Printf("[T] %s 公司 %s 产品e-Link自组网接口一致性测试报告\n", cli.vendor, cli.model)
-	fmt.Printf("[T] -----------------------------------------------------------------------------------------\n")
-	fmt.Printf("[T] 测试依据：《中国电信家庭终端与智能家庭网关自动连接的接口技术要求》(Q/CT2621-2017)\n")
-	fmt.Printf("[T] 委托单位：北京微桥信息技术有限公司\n")
-	fmt.Printf("[T] 测试地点：量子银座\n")
-	fmt.Printf("[T] 测试时间：%v\n", time.Now())
-	fmt.Printf("[T] 版 本 号：1.0\n")
-	fmt.Printf("[T] 测试人员：%s\n", username)
-	fmt.Printf("[T] =========================================================================================\n")
-	fmt.Printf("[T] 序号|                测试接口名称            |     测试用例名称   |测试结果\n")
-	for i, v := range queue.Children {
+	count := 0
+	LogPrintln("[T]", "===============================================================================================")
+	LogPrintln("[T]", cli.vendor, "公司", cli.model, "产品e-Link自组网接口一致性测试报告")
+	LogPrintln("[T]", "-----------------------------------------------------------------------------------------------")
+	LogPrintln("[T]", "测试依据：", "《中国电信家庭终端与智能家庭网关自动连接的接口技术要求》(Q/CT2621-2017)")
+	LogPrintln("[T]", "委托单位：", "北京微桥信息技术有限公司")
+	LogPrintln("[T]", "测试地点：", "量子银座")
+	LogPrintln("[T]", "测试时间：", time.Now())
+	LogPrintln("[T]", "版 本 号：", "1.0")
+	LogPrintln("[T]", "测试人员：", username)
+	LogPrintln("[T]", "连接次数：", cli.connTimes)
+	LogPrintln("[T]", "===============================================================================================")
+	LogPrintln("[T]", "序号", "|", FW("测试接口名称", 40), "|", FW("测试用例名称", 34), "|", "测试结果")
+	LogPrintln("[T]", "-----------------------------------------------------------------------------------------------")
+	for _, v := range queue {
 		if v.Interface != "" {
-			fmt.Printf("[T] %2d|%-40s|%-20s|[%s]\n",
-				i+1, v.Interface, v.Name, strconv.FormatBool(v.Pass))
+			count++
+			index := fmt.Sprintf("%4v", count)
+			title := FW(v.Interface, 40)
+			name := FW(v.Name, 34)
+			pass := "不通过"
+			if v.Pass {
+				pass = "通过"
+			}
+			LogPrintln("[T]", index, "|", title, "|", name, "|", pass)
 		}
 	}
+	LogPrintln("[T]", "===============================================================================================")
 }
 
 func handleListen(cli *Client) {
@@ -91,21 +121,21 @@ func handleListen(cli *Client) {
 	var err error
 	l, err = net.Listen("tcp", *host+":"+*port)
 	if err != nil {
-		fmt.Println("Error listening:", err)
+		LogPrintln("[E]", "Error listening:", err)
 		os.Exit(1)
 	}
 	defer l.Close()
-	fmt.Println("Listening on " + *host + ":" + *port)
+	LogPrintln("[I]", "Listening on "+*host+":"+*port)
 
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			fmt.Println("Error accepting: ", err)
+			LogPrintln("[E]", "Error accepting: ", err)
 			os.Exit(1)
 		}
 
 		// logs an incoming message
-		fmt.Printf("Connection %s -> %s \n", conn.RemoteAddr(), conn.LocalAddr())
+		LogPrintln("[E]", "Connection", conn.RemoteAddr(), "->", conn.LocalAddr())
 		cli.Run(conn)
 	}
 }

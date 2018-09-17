@@ -21,14 +21,17 @@ const (
 )
 
 type Client struct {
-	conn         net.Conn
-	state        StateType
-	shareKey     []byte
-	response     chan string
-	condReady    *sync.Cond
-	locker       sync.Mutex
+	conn      net.Conn
+	state     StateType
+	shareKey  []byte
+	requests  chan []byte
+	response  chan string
+	condReady *sync.Cond
+	locker    sync.Mutex
+	once      sync.Once
 
 	// Client information
+	mac       string
 	vendor    string
 	model     string
 	swversion string
@@ -37,20 +40,26 @@ type Client struct {
 	ipaddr    string
 	url       string
 	wireless  string
+
+	// Statistic data
+	connTimes int
 }
 
 func NewClient() Client {
 	return Client{
-		conn:         nil,
-		state:        StateDisconnected,
-		shareKey:     nil,
-		response:     make(chan string, 100),
-		condReady:    sync.NewCond(&sync.Mutex{}),
-		locker:       sync.Mutex{},
+		conn:      nil,
+		state:     StateDisconnected,
+		shareKey:  nil,
+		requests:  make(chan []byte, 100),
+		response:  make(chan string, 100),
+		condReady: sync.NewCond(&sync.Mutex{}),
+		locker:    sync.Mutex{},
+		once:      sync.Once{},
+		connTimes: 0,
 	}
 }
 
-func (c *Client) sendData(data []byte) {
+func (c *Client) sendData(data []byte) (err error) {
 	msgStr := string(data)
 
 	// Write magic code
@@ -62,9 +71,10 @@ func (c *Client) sendData(data []byte) {
 
 	// Write length and body
 	if c.shareKey != nil {
-		b, err := AesEncrypt(data, c.shareKey)
+		var b []byte
+		b, err = AesEncrypt(data, c.shareKey)
 		if err != nil {
-			fmt.Println("Encrypt error:", err)
+			LogPrintln("[E]", "Encrypt error:", err)
 			return
 		}
 
@@ -85,12 +95,13 @@ func (c *Client) sendData(data []byte) {
 	}
 
 	if c.conn != nil {
-		if _, err := c.conn.Write(msg.Bytes()); err != nil {
-			fmt.Println("[E]", msgStr, "Error:", err)
+		if _, err = c.conn.Write(msg.Bytes()); err != nil {
+			LogPrintln("[E]", "Send error:", err)
 		} else {
-			fmt.Println("[O]", msgStr)
+			LogPrintln("[O]", msgStr)
 		}
 	}
+	return
 }
 
 func (c *Client) sendJSON(str string) {
@@ -151,17 +162,11 @@ func (c *Client) onMessageDH(sequence int32, mac string, msg interface{}) {
 	B64ToBigInt(p, &bigP)
 	B64ToBigInt(g, &bigG)
 
-	dh, _ := NewDH(rand.Reader, (128 + 7)/8, &bigG, &bigP)
+	// e-Link key size is 128bits
+	dh, _ := NewDH(rand.Reader, (128+7)/8, &bigG, &bigP)
 	myPublicKey := dh.ComputePublic()
 	sharedKey, _ := dh.ComputeShared(&bigK)
 
-	//group := dhkx.CreateGroup(&bigP, &bigG)
-	//privateKey, _ := group.GeneratePrivateKey(nil)
-	//peerPublicKey := dhkx.NewPublicKey(bigK.Bytes())
-	//sharedKey, _ := group.ComputeKey(peerPublicKey, privateKey)
-
-	//var myPublicKey big.Int
-	//myPublicKey.SetBytes(privateKey.Bytes())
 	myKey := BigIntToB64(myPublicKey)
 	c.sendJSON(fmt.Sprintf(
 		"{\"type\":\"dh\",\"sequence\":%d,\"mac\":\"%s\",\"data\":{\"dh_key\":\"%s\",\"dh_p\":\"%s\",\"dh_g\":\"%s\"}}",
@@ -169,7 +174,7 @@ func (c *Client) onMessageDH(sequence int32, mac string, msg interface{}) {
 
 	// Set shareKey here to avoid encrypt dh message
 	c.shareKey = sharedKey.Bytes()
-	fmt.Println("[I] GOT SHARED KEY:", c.shareKey)
+	LogPrintln("[I]", "SHARE KEY:", c.shareKey)
 }
 
 // {
@@ -214,6 +219,7 @@ func (c *Client) onMessageDEVREG(sequence int32, mac string, msg interface{}) {
 			break
 		}
 	}
+	c.mac = mac
 
 	c.sendJSON(fmt.Sprintf("{\"type\":\"ack\",\"sequence\":%d,\"mac\":\"%s\"}",
 		sequence, mac))
@@ -221,6 +227,7 @@ func (c *Client) onMessageDEVREG(sequence int32, mac string, msg interface{}) {
 	// The device is enrolled. the eLink connection can be used to send data.
 	c.state = StateELKConnected
 	c.condReady.Broadcast()
+	c.connTimes++
 }
 
 // {"type":"ack","sequence":16,"mac":"940E6B445754"}
@@ -269,21 +276,23 @@ func (c *Client) onMessage(data []byte) {
 
 	// Decrypt the message at first
 	if c.shareKey != nil {
+		LogPrintln("[-]", "DATA LENGTH =", len(data), ", MOD 16 =", len(data)%16)
 		var err error
 		data, err = AesDecrypt(data, c.shareKey)
 		if err != nil {
-			fmt.Println("[E] Error:", err)
+			LogPrintln("[E]", "Decrypt error:", err)
+			return
 		}
 	}
 
 	// Clear and show the message
 	data = bytes.Trim(data, " \t\n\r\x00")
-	fmt.Println("[I]", string(data))
+	LogPrintln("[I]", string(data))
 
 	// Convert json string to object
 	var msg interface{}
 	if err := json.Unmarshal(data, &msg); err != nil {
-		fmt.Println("Decode message error: " + err.Error())
+		LogPrintln("[E]", "Decode message error:", err)
 		return
 	}
 
@@ -334,7 +343,8 @@ func (c *Client) readLoop() {
 		var err error
 		var receivedBytes int
 		if receivedBytes, err = c.conn.Read(data); err != nil {
-			fmt.Println("Error:", err)
+			LogPrintln("[E]", "Error:", err)
+			c.conn = nil
 			break
 		}
 		buffer.Write(data[:receivedBytes])
@@ -343,10 +353,9 @@ func (c *Client) readLoop() {
 			if messageLength == 0 {
 				data = buffer.Next(8)
 				if data[0] != 0x3f || data[1] != 0x72 || data[2] != 0x1f || data[3] != 0xb5 {
-					fmt.Printf("Received magic code error!\n")
-					fmt.Printf("  EXP: 0x3F 0x72 0x1F 0xB5\n")
-					fmt.Printf("  GOT: 0x%02X 0x%02X 0x%02X 0x%02X\n",
-						data[0], data[1], data[2], data[3])
+					LogPrintln("[E]", "Received magic code error!")
+					LogPrintln("[E]", "  EXP: 0x3F 0x72 0x1F 0xB5")
+					LogPrintln("[E]", "  GOT:", data[0], data[1], data[2], data[3])
 					break
 				}
 
@@ -366,9 +375,30 @@ func (c *Client) readLoop() {
 	}
 }
 
+func (c *Client) writeLoop() {
+	var message []byte = nil
+	for {
+		if c.state != StateELKConnected {
+			time.Sleep(time.Second)
+			continue
+		}
+
+		if message == nil {
+			message = <-c.requests
+		}
+
+		c.locker.Lock()
+		if err := c.sendData(message); err == nil {
+			message = nil
+		} else {
+			c.state = StateDisconnected
+		}
+		c.locker.Unlock()
+	}
+}
+
 func (c *Client) Run(conn net.Conn) {
 	c.locker.Lock()
-	defer c.locker.Unlock()
 
 	if c.conn != nil {
 		c.conn.Close()
@@ -376,7 +406,13 @@ func (c *Client) Run(conn net.Conn) {
 	c.conn = conn
 	c.shareKey = nil
 	c.state = StateTCPConnected
+
 	go c.readLoop()
+	c.once.Do(func() {
+		go c.writeLoop()
+	})
+
+	c.locker.Unlock()
 }
 
 func (c *Client) WaitReady() {
@@ -388,13 +424,25 @@ func (c *Client) WaitReady() {
 }
 
 func (c *Client) SendRequest(msg interface{}) {
-	c.locker.Lock()
-	defer c.locker.Unlock()
+	// Change MAC address to real client MAC
+	m := msg.(map[string]interface{})
+	for k, _ := range m {
+		if k == "mac" {
+			m[k] = c.mac
+			break
+		}
+	}
 
+	// Convert message object to byte array
 	if d, err := json.Marshal(msg); err != nil {
-		fmt.Println("Send message error:", err)
+		LogPrintln("[E]", "Encode msg error:", err)
 	} else {
-		c.sendData(d)
+		c.requests <- d
+	}
+
+	// Drain response
+	for len(c.response) > 0 {
+		<-c.response
 	}
 }
 
@@ -421,4 +469,3 @@ func (c *Client) WaitAndCheckResponse(seconds int, keywords []string) bool {
 	}
 	return false
 }
-
