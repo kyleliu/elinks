@@ -426,7 +426,7 @@ func (c *Client) WaitReady() {
 func (c *Client) SendRequest(msg interface{}) {
 	// Change MAC address to real client MAC
 	m := msg.(map[string]interface{})
-	for k, _ := range m {
+	for k := range m {
 		if k == "mac" {
 			m[k] = c.mac
 			break
@@ -467,5 +467,4 @@ func (c *Client) WaitAndCheckResponse(seconds int, keywords []string) bool {
 			return false
 		}
 	}
-	return false
 }

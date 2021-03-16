@@ -44,7 +44,7 @@ func LogPrintln(a ...interface{}) {
 
 func LogPrintf(format string, a ...interface{}) {
 	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf(format, a))
+	buf.WriteString(fmt.Sprintf(format, a...))
 
 	if LogQuiet {
 		LogQuietDump += fmt.Sprintln(time.Now().Format("2006-01-02 15:04:05"), buf.String())
