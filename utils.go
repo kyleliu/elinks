@@ -121,9 +121,24 @@ func PKCS7Padding(ciphertext []byte, blockSize int) []byte {
 	return append(ciphertext, padtext...)
 }
 
-func PKCS7UnPadding(origData []byte) []byte {
+func PKCS7UnPadding(origData []byte, blockSize int) []byte {
 	length := len(origData)
 	unpadding := int(origData[length-1])
+
+	// 若padding长度不在0到blockSize范围内
+	// 说明该段密文根本没有padding过
+	if unpadding <= 0 || unpadding >= blockSize {
+		return origData
+	}
+
+	// padding字节一定都相等
+	padchar := origData[length-1]
+	for i := 1; i < unpadding; i++ {
+		if padchar != origData[length-1 - i] {
+			return origData
+		}
+	}
+
 	return origData[:(length - unpadding)]
 }
 
@@ -157,7 +172,7 @@ func AesDecrypt(crypted, key []byte) ([]byte, error) {
 	blockMode := cipher.NewCBCDecrypter(block, iv)
 	origData := make([]byte, len(crypted))
 	blockMode.CryptBlocks(origData, crypted)
-	origData = PKCS7UnPadding(origData)
+	origData = PKCS7UnPadding(origData, blockSize)
 	return origData, nil
 }
 

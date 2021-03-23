@@ -132,7 +132,7 @@ server4:
         # situations where there are multiple DHCP servers on the network
         # - server_id: <IP address>
         # The IP address should be one address where this server is reachable
-        - server_id: 10.10.10.1
+        - server_id: 192.168.88.1
 
         # dns advertises DNS resolvers usable by the clients on this network
         # - dns: <IP address> <...IP addresses>
@@ -141,7 +141,7 @@ server4:
         # router is mandatory, and advertises the address of the default router
         # for this network
         # - router: <IP address>
-        - router: 192.168.1.1
+        - router: 192.168.88.1
 
         # netmask advertises the network mask for the IPs assigned through this
         # server
@@ -154,4 +154,4 @@ server4:
         # allocated to clients will be stored across server restarts
         # * lease duration can be given in any format understood by go's
         # "ParseDuration": https://golang.org/pkg/time/#ParseDuration
-        - range: leases.txt 10.10.10.100 10.10.10.200 60s
+        - range: leases.txt 192.168.88.100 192.168.88.200 60s
